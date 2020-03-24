@@ -99,7 +99,7 @@ char * allocated_buffer_read(int socket, char *buf, int *size){
   int bytes_read;
   do{
     buf = (char *)realloc(buf, *size + READ_CHUNK);
-    bytes_read = read(socket, buf, READ_CHUNK);
+    bytes_read = read(socket, buf + size, READ_CHUNK);
     *size += bytes_read;
   } while (bytes_read == READ_CHUNK);
 
@@ -120,9 +120,12 @@ void * pack(pan *files, int * d_len){
 
   for (; i < files->len; i++){
     uint16_t name_size = (uint16_t)strlen(files->sf[i]->name);
-    s = (void *)realloc(s, full_size + name_size + 2);
-    full_size = full_size + name_size + 2;
+    s = (void *)realloc(s, full_size + name_size + 3);
 
+    full_size = full_size + name_size + 3;
+
+    memcpy(s + offset, (void *)&files->sf[i]->type, 1);
+    offset += 1;
     memcpy(s + offset, (void *)&name_size, 2);
     offset += 2;
     memcpy(s + offset, (void *)files->sf[i]->name, (int)name_size);
