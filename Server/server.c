@@ -10,11 +10,12 @@
 #include <dirent.h>
 #include <errno.h>
 #include <string.h>
+#include <pthread.h>
 
 #define PATH_MAX 4096 //chars in a path name including null
 #define READ_CHUNK 1024 
 #define BATCH_SIZE 128
-
+#define NUM_THREADS 20
 
 
 
@@ -103,7 +104,8 @@ char * allocated_buffer_read(int socket, char *buf, int *size){
     *size += bytes_read;
   } while (bytes_read == READ_CHUNK);
 
-  buf = (char *)realloc(buf, *size);
+  buf = (char *)realloc(buf, *size + 1);
+  buf[*size]=0;
   return buf;
 
 }
@@ -138,7 +140,8 @@ void * pack(pan *files, int * d_len){
 
 }
 
-void connection_handle(int socket){
+void* connection_handle(void* vsock){
+  int socket = *(int *)vsock;
   char *s = NULL;
   pan *files;
   int size;
@@ -157,7 +160,7 @@ void connection_handle(int socket){
       free(res);
       break;
   }
-  
+  close(socket);
   free(s);
 }
 
@@ -172,8 +175,6 @@ int main(int argc, char* argv[]){
       exit(1);
     }
 
-
-  
   sockfd = socket(AF_INET,SOCK_STREAM,0);
   if(sockfd == -1){
     printf("Socket error\n");
@@ -184,45 +185,47 @@ int main(int argc, char* argv[]){
   local_addr.sin_family = AF_INET; 
   local_addr.sin_addr.s_addr = INADDR_ANY; 
   local_addr.sin_port = htons( port ); 
+  int flag =1;
 
   if( bind(sockfd, (struct sockaddr*)&local_addr, sizeof(local_addr)) == -1){
     printf("Bind error\n");
+ 
   }
+
+  if(setsockopt(sockfd,SOL_SOCKET,(SO_REUSEADDR | SO_REUSEPORT),(char *)&flag,sizeof(flag)) != 0) {
+	printf(" setsockopt error \n");
+	}
 
   if(listen(sockfd,5) == -1){
     printf("Listen error\n");
   }
-  puts("Listenting");
+   puts("Listenting");
 
-  while(1){
-    //create a new socket for each connection
+
+   pthread_t pthread[NUM_THREADS];
+   int thread_count = 0;
+
+    while(1){   
 
     connfd = accept(sockfd,(struct sockaddr *)&rmt_addr,  &rlen);
-
+	
     if(connfd == -1){
       printf("Accept error\n");
-      continue;
-    }
-    pid_t pid = fork();
-
-    if(pid == 0){ //new process
-      puts("New connection");
-
-      connection_handle(connfd);
-      return 0;
-      
-      }
-    else if(pid == -1){//fork error
-      printf("fork() error\n");
     }
 
-    else{ //parrent process
-      close(connfd);
-    }
-  }
-  close(sockfd);
-  exit(0);
+    if( pthread_create(&pthread[thread_count],NULL,(void *)connection_handle,&connfd) != 0)
+		printf("Failed to create thread");
+	thread_count++;
 
+	printf("after pthread create \n");
 
+    if(thread_count >= NUM_THREADS-10){
+	thread_count = 0;
+	while(thread_count < NUM_THREADS -10){
+		pthread_join(pthread[thread_count++],NULL);
+		}
+	thread_count = 0;
+	}
+}
   return 0;
 }
