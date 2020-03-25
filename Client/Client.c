@@ -145,6 +145,50 @@ pan *unpack(void *data){
 	return pannel;
 }
 
+int upload(char *file){
+	int socket = make_connection();
+    
+    char cmd[257] = "u";
+
+    strcat(cmd, file);
+
+    send(socket , cmd , strlen(cmd) , 0 ); 
+
+	return 0;
+}
+
+int download(char *file){
+	int socket = make_connection();
+    
+    char cmd[257] = "d";
+
+    strcat(cmd, file);
+
+    send(socket , cmd , strlen(cmd) , 0 ); 
+
+
+	return 0;
+}
+
+int sv_remove(char *file){
+	int socket = make_connection();
+    
+    char cmd[257] = "r";
+
+    strcat(cmd, file);
+
+    send(socket , cmd , strlen(cmd) , 0 ); 
+
+
+	return 0;
+
+}
+
+int local_remove(char *file){
+	return remove(file);
+}
+
+
 
 
 pan *server_list_dir(char * dir){
@@ -218,7 +262,7 @@ pan *local_list_dir(char * curent_director){
 	pan *pannel = (pan *)malloc(sizeof(pan));
 
 	pannel->sf = files;
-	pannel->len = curent;
+	pannel->len = curent -1;
 
 	return pannel;
 }
@@ -231,7 +275,7 @@ void smartprint(int w, int h, pan * right, pan * left, int selected_left, int se
 	int half = w / 2;
 	w = 20 + w;
 
-	h -= 2;
+	h -= 1;
 
 	char matrix[w * h];
 	
@@ -256,7 +300,7 @@ void smartprint(int w, int h, pan * right, pan * left, int selected_left, int se
 
 
 	maxi = left->len < (h - 1)  ? left->len : (h - 1);
-	offset = selected_left - maxi > 0 + 1? selected_left - maxi + 1 : 0;
+	offset = selected_left - maxi + 1> 0 ? selected_left - maxi + 1 : 0;
 
 
 	for (i = 0;i < maxi; i++){
@@ -434,7 +478,7 @@ int iterface(void){
 
 	while (1){
 	
-		printf(CLRS);
+		// printf(CLRS);
 		// puts(right_dir);
 		
 		int result = ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
@@ -479,6 +523,59 @@ int iterface(void){
 				else
 					selected_panel = 1;
 				break;
+			case 'c':
+				if (selected_panel && right_panel->sf[selected_right]->type != 4) //sa fie fisier nu folder
+					{
+						char full_path[270];
+						strcpy(full_path, right_dir);
+						strcat(full_path, "/");
+						strcat(full_path, right_panel->sf[selected_right]->name);
+						download(full_path);
+
+						left_panel = local_list_dir(left_dir);
+						qsort(left_panel->sf, left_panel->len, sizeof(sfl *), compare);
+
+					}
+				else
+				{
+					if (left_panel->sf[selected_left]->type == 4)
+						break;
+
+					char full_path[270];
+					strcpy(full_path, left_dir);
+					strcat(full_path, "/");
+					strcat(full_path, left_panel->sf[selected_left]->name);
+					upload(full_path);
+
+					right_panel = server_list_dir(right_dir);
+					qsort(right_panel->sf, right_panel->len, sizeof(sfl *), compare);
+				}
+				break;
+			case 'r':
+				if (selected_panel && right_panel->sf[selected_right]->type != 4)
+				{
+					char full_path[270];
+					strcpy(full_path, right_dir);
+					strcat(full_path, "/");
+					strcat(full_path, right_panel->sf[selected_right]->name);
+					sv_remove(full_path);
+
+					right_panel = server_list_dir(right_dir);
+					qsort(right_panel->sf, right_panel->len, sizeof(sfl *), compare);
+				}
+				else
+				{
+					if (left_panel->sf[selected_left]->type == 4)
+						break;
+					char full_path[270];
+					strcpy(full_path, left_dir);
+					strcat(full_path, "/");
+					strcat(full_path, left_panel->sf[selected_left]->name);
+					local_remove(full_path);
+					left_panel = local_list_dir(left_dir);
+					qsort(left_panel->sf, left_panel->len, sizeof(sfl *), compare);
+				}
+
 			case '\n':
 				if (selected_panel){
 					if (right_panel->sf[selected_right]->type == 4 && strcmp(right_panel->sf[selected_right]->name, ".")){
