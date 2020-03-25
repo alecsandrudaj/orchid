@@ -19,7 +19,7 @@
 
 
 extern int errno ;
-
+int port;
 
 typedef struct file{
   char *name;
@@ -167,24 +167,19 @@ int main(int argc, char* argv[]){
   struct sockaddr_in local_addr, rmt_addr;
   socklen_t rlen = sizeof(rmt_addr);
 
-  // if(argc < 3){
-  //     printf("Please call: %s <directory> <port>\n", argv[0]);
-  //     exit(1);
-  //   }
-
-  
-  if(chdir(argv[1]) < 0){
-      printf("CHDIR error");
+  if(argc != 2){
+      printf("Please call: %s <port>\n", argv[0]);
+      exit(1);
     }
 
+
   
-  //AF_INET - IPv4 protocol, SOCK_STREAM - TCP 
   sockfd = socket(AF_INET,SOCK_STREAM,0);
   if(sockfd == -1){
     printf("Socket error\n");
   }
 
-  int port = atoi(argv[2]);
+  port = atoi(argv[1]);
 
   local_addr.sin_family = AF_INET; 
   local_addr.sin_addr.s_addr = INADDR_ANY; 

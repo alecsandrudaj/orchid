@@ -44,6 +44,10 @@
 
 extern int errno ;
 
+
+char ip[25];
+int port;
+
 typedef struct file{
 	char *name;
 	char type;
@@ -86,9 +90,9 @@ int make_connection(){
    
 
     serv_addr.sin_family = AF_INET; 
-    serv_addr.sin_port = htons(8080); 
+    serv_addr.sin_port = htons(port); 
        
-    if(inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr)<=0)  
+    if(inet_pton(AF_INET, ip, &serv_addr.sin_addr)<=0)  
     { 
         printf("\nInvalid address/ Address not supported \n"); 
         return -1; 
@@ -571,7 +575,15 @@ int iterface(void){
 
 
 
-int main(void){
+int main(int argc, char* argv[]){
+
+	  if(argc != 3){
+      printf("Please call: %s <ip> <port>\n", argv[0]);
+      exit(1);
+    }
+
+    strcpy(ip, argv[1]);
+	port = atoi(argv[2]);
 
 	return iterface();
 
