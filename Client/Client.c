@@ -146,15 +146,35 @@ pan *unpack(void *data){
 }
 
 int upload(char *file){
-	int socket = make_connection();
+int socket = make_connection();
+
+    int file_size;
+    char *packed_file_size=NULL;
+    int chunk_size=4096;
+    char *packed_chunk_size=NULL;
+
+    FILE* fp;
+    char cmd[257]="u";
+   
+    packed_file_size=(char *)realloc(packed_file_size, 4);
+
+    fp=fopen(file, "r");
+    fseek(fp, 0L, SEEK_END);
+    file_size=ftell(fp);
+    fseek(fp, 0L, SEEK_SET);
+
+    memcpy(packed_file_size, (void *)&file_size, 4);
+    strcat(cmd, packed_file_size);
     
-    char cmd[257] = "u";
+    packed_chunk_size=(char *)realloc(packed_chunk_size, 4);
+    memcpy(packed_chunk_size, (void *)&chunk_size, 4);
+    strcat(cmd, packed_chunk_size);
 
     strcat(cmd, file);
 
     send(socket , cmd , strlen(cmd) , 0 ); 
 
-	return 0;
+    return 0;
 }
 
 int download(char *file){

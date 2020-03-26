@@ -176,6 +176,10 @@ void* connection_handle(void* vsock){
 	send(socket,(void *)send_data,strlen(send_data),0);
 	close(socket);
 	break;
+
+    case 'u':
+      
+    break;
   }
   close(socket);
   free(s);
