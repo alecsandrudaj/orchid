@@ -103,9 +103,10 @@ char * allocated_buffer_read(int socket, char *buf, int *size){
     bytes_read = read(socket, buf + *size, READ_CHUNK);
     *size += bytes_read;
   } while (bytes_read == READ_CHUNK);
-
+	
   buf = (char *)realloc(buf, *size + 1);
-  buf[*size]=0;
+ buf[*size]=0; //********************************* Segm fault cand apas pe r in srv
+
   return buf;
 
 }
@@ -140,6 +141,8 @@ void * pack(pan *files, int * d_len){
 
 }
 
+
+
 void* connection_handle(void* vsock){
   int socket = *(int *)vsock;
   char *s = NULL;
@@ -150,6 +153,7 @@ void* connection_handle(void* vsock){
 
   switch (s[0]){
     case 'f':  //The client wants the list of files from the directory starting from s + 1
+      printf("SRV F CASE OF SWTICH\n");
       files = local_list_dir(s+1);
       int d_len;
       void *res = pack(files, &d_len);
@@ -159,10 +163,22 @@ void* connection_handle(void* vsock){
       printf("%d\n", sent_bytes);
       free(res);
       break;
+
+    case 'r': // The client wants to remove the file
+	printf("SRV r CASE OF SWTICH\n");	
+
+	if(remove(s+1) == 0) printf("Successfully deleted\n");
+		else printf("Unable to delete the file\n");
+
+	char *send_data="ACK";
+	send(socket,(void *)send_data,strlen(send_data),0);
+	close(socket);
+	break;
   }
   close(socket);
   free(s);
 }
+
 
 
 int main(int argc, char* argv[]){
@@ -217,9 +233,8 @@ int main(int argc, char* argv[]){
 		printf("Failed to create thread");
 	thread_count++;
 
-	printf("after pthread create \n");
 
-    if(thread_count >= NUM_THREADS-10){
+    if(thread_count >= NUM_THREADS-10){ // when 10 threads are created
 	thread_count = 0;
 	while(thread_count < NUM_THREADS -10){
 		pthread_join(pthread[thread_count++],NULL);
