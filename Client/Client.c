@@ -102,7 +102,7 @@ int make_connection(){
     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) 
     { 
         printf("\nConnection Failed \n"); 
-        exit(-1); 
+       	exit(-1);
     } 
 
     return sock;
@@ -178,8 +178,8 @@ int sv_remove(char *file){
     strcat(cmd, file);
 
     send(socket , cmd , strlen(cmd) , 0 ); 
-
-
+    read(socket, cmd, READ_CHUNK);
+    close(socket);
 	return 0;
 
 }
@@ -205,6 +205,8 @@ pan *server_list_dir(char * dir){
     void *buffer = NULL; 
     int sz;
     buffer = allocated_buffer_read( socket , buffer, &sz); 
+
+    close(socket);
 
     return unpack(buffer);
 }
@@ -575,7 +577,7 @@ int iterface(void){
 					left_panel = local_list_dir(left_dir);
 					qsort(left_panel->sf, left_panel->len, sizeof(sfl *), compare);
 				}
-
+				break;
 			case '\n':
 				if (selected_panel){
 					if (right_panel->sf[selected_right]->type == 4 && strcmp(right_panel->sf[selected_right]->name, ".")){

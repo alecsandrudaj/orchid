@@ -96,6 +96,7 @@ pan *local_list_dir(char * curent_director){
 
 char * allocated_buffer_read(int socket, char *buf, int *size){
 
+	
   *size = 0;
   int bytes_read;
   do{
@@ -104,10 +105,11 @@ char * allocated_buffer_read(int socket, char *buf, int *size){
     *size += bytes_read;
   } while (bytes_read == READ_CHUNK);
 	
-  buf = (char *)realloc(buf, *size + 1);
- buf[*size]=0; //********************************* Segm fault cand apas pe r in srv
+	buf = (char *)realloc(buf, *size + 1);
+	printf("%s %d\n", buf, *size);
+	buf[*size]=0;
 
-  return buf;
+	return buf;
 
 }
 
