@@ -135,7 +135,6 @@ pan *unpack(void *data){
 		offset += len;
 	}
 
-
 	pan *pannel = (pan *)malloc(sizeof(pan));
 
 	pannel->sf = files;
@@ -145,35 +144,69 @@ pan *unpack(void *data){
 	return pannel;
 }
 
-int upload(char *file){
-int socket = make_connection();
+int upload(char *file_path, char *right_dir_path){
+    int socket = make_connection();
 
-    int file_size;
-    char *packed_file_size=NULL;
-    int chunk_size=4096;
-    char *packed_chunk_size=NULL;
-
+    int* file_size;
+    int* chunk_size;
     FILE* fp;
-    char cmd[257]="u";
-   
-    packed_file_size=(char *)realloc(packed_file_size, 4);
+    void *cmd;
+    char c='u';
+    char blocks_c[4];
+    int blocks=0;
+    void *file_name;
+    void *right_file_path;
+    
+    file_name=strrchr(file_path,'/');
+    printf("file name=%s, right_dir path=%s\n",(char *)file_name,right_dir_path);
 
-    fp=fopen(file, "r");
+    right_file_path=(void *)malloc(strlen(right_dir_path)+ strlen((char *)file_name)+1);
+
+    memcpy(right_file_path, right_dir_path, strlen(right_dir_path)+1);
+    memcpy(right_file_path+strlen(right_dir_path), file_name, strlen((char *)file_name)+1);
+
+    printf("right file name=%s\n",(char *)right_file_path);
+
+    file_size=(int *)malloc(1);
+    chunk_size=(int *)malloc(1);
+    *chunk_size=4096;
+
+    cmd=(void *)malloc(1);
+    memcpy(cmd,(void *)&c,1);
+
+    fp=fopen(file_path, "rb");
     fseek(fp, 0L, SEEK_END);
-    file_size=ftell(fp);
+    *file_size=ftell(fp);
     fseek(fp, 0L, SEEK_SET);
 
-    memcpy(packed_file_size, (void *)&file_size, 4);
-    strcat(cmd, packed_file_size);
+    cmd=(void *)realloc(cmd,5);
+    memcpy(cmd+1, (void *)file_size, 4);
+
+    cmd=(void *)realloc(cmd,9);
+    memcpy(cmd+5, (void *)chunk_size, 4);
+
+    cmd=(void *)realloc(cmd,9+strlen(right_dir_path)+ strlen((char *)file_name)+1); 
+    memcpy(cmd+9, (void *)right_file_path, strlen((char *)right_file_path)+1);
+ 
+    printf("file size=%d, block size=%d\n",*(int *)(cmd+1),*(int *)(cmd+5));
+
+    send(socket , cmd , 9 + strlen(file_path) + 1 , 0 ); 
+    read(socket, blocks_c, 4);
+    blocks=*(int *)blocks_c;
+
+    printf("received from server no of blocks=%d\n",blocks);
     
-    packed_chunk_size=(char *)realloc(packed_chunk_size, 4);
-    memcpy(packed_chunk_size, (void *)&chunk_size, 4);
-    strcat(cmd, packed_chunk_size);
+    void *buff;
+    int bytes_read=0;
 
-    strcat(cmd, file);
-
-    send(socket , cmd , strlen(cmd) , 0 ); 
-
+    buff=(void *)malloc(*chunk_size);
+    for(int i=0; i<blocks; i++)
+    {
+	bytes_read=fread(buff, 1, *chunk_size, fp);
+	send(socket, buff, bytes_read, 0);
+    }
+    fclose(fp);
+    close(socket);
     return 0;
 }
 
@@ -567,7 +600,7 @@ int iterface(void){
 					strcpy(full_path, left_dir);
 					strcat(full_path, "/");
 					strcat(full_path, left_panel->sf[selected_left]->name);
-					upload(full_path);
+					upload(full_path, right_dir);
 
 					right_panel = server_list_dir(right_dir);
 					qsort(right_panel->sf, right_panel->len, sizeof(sfl *), compare);

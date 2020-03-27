@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <string.h>
 #include <pthread.h>
+#include <math.h>
 
 #define PATH_MAX 4096 //chars in a path name including null
 #define READ_CHUNK 1024 
@@ -95,8 +96,7 @@ pan *local_list_dir(char * curent_director){
 
 
 char * allocated_buffer_read(int socket, char *buf, int *size){
-
-	
+  
   *size = 0;
   int bytes_read;
   do{
@@ -108,7 +108,6 @@ char * allocated_buffer_read(int socket, char *buf, int *size){
 	buf = (char *)realloc(buf, *size + 1);
 	printf("%s %d\n", buf, *size);
 	buf[*size]=0;
-
 	return buf;
 
 }
@@ -143,7 +142,26 @@ void * pack(pan *files, int * d_len){
 
 }
 
+void upload(int socket, char *file_path, int blocks, int chunk_size)
+{
+    FILE *fp;
+    char *buff;
+    int bytes_read=0;
 
+    if((fp=fopen(file_path,"wb"))!=NULL)
+	puts("FILE CREATED");
+    else
+	puts("CANT CREATE FILE!");
+
+    buff=(char *)malloc(chunk_size);
+    printf("file_path in upload=%s\n",file_path);
+    for(int i=0; i<blocks; i++)
+    {
+	bytes_read=read(socket, buff, chunk_size);
+	fwrite(buff, bytes_read, 1, fp);
+    }
+    fclose(fp);
+}
 
 void* connection_handle(void* vsock){
   int socket = *(int *)vsock;
@@ -152,6 +170,7 @@ void* connection_handle(void* vsock){
   int size;
   s = allocated_buffer_read(socket, s, &size);
   puts(s);
+  float file_size=0, block_size=0;
 
   switch (s[0]){
     case 'f':  //The client wants the list of files from the directory starting from s + 1
@@ -178,7 +197,27 @@ void* connection_handle(void* vsock){
 	break;
 
     case 'u':
+      printf("IN CASE u\n");
+
+      file_size=*(int *)(s+1);
+      block_size=*(int *)(s+5);
       
+      printf("file size is: %f\n",file_size);
+      printf("block size is: %f\n",block_size);
+      printf("file name is:%s\n",s+9);
+
+      void *blocks_c;
+      int blocks;
+      
+      blocks = ceil(file_size/block_size);
+      blocks_c=malloc(4);
+      memcpy(blocks_c, (void *)&blocks, 4);
+      printf("send to client answer = %d no of blocks\n",blocks);
+      send(socket, (void *)blocks_c, 4,0);
+
+      upload(socket, s+9, blocks, block_size);
+      
+      close(socket);
     break;
   }
   close(socket);
