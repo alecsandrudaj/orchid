@@ -163,7 +163,59 @@ void upload(int socket, char *file_path, int blocks, int chunk_size)
     fclose(fp);
 }
 
-void* connection_handle(void* vsock){
+int get_file_size(FILE *fp) {
+	int size = 0;
+	fseek(fp, 0L, SEEK_END);
+    size=ftell(fp);
+    fseek(fp, 0L, SEEK_SET);
+
+    return size;
+}
+
+int download_file(int socket, char *fn) {
+	FILE *fp;
+	int size = 0;
+	int blocks = 0;
+	int block_size = 4096;
+
+	fp = fopen(fn,"rb");
+	if (!fp)
+		return -1;
+
+	size = get_file_size(fp);
+
+    char *syn_buffer = malloc(2*sizeof(int));
+
+    memcpy(syn_buffer, &size, sizeof(int));
+    memcpy(syn_buffer+sizeof(int), &block_size, sizeof(int));
+    send(socket, syn_buffer, 2*sizeof(int), 0);
+ 
+ 	int rec_blocks = 0;
+    read(socket, &rec_blocks, sizeof(int));
+
+    if (size%block_size == 0)
+    	blocks = size/block_size;
+    else
+    	blocks = size/block_size+1;
+    
+    if (rec_blocks != blocks) {
+    	return -2;
+    }
+
+    void *block = (void *)malloc(block_size);
+    int bytes_read = 0;
+    for (int i=0; i<blocks; i++) {
+    	bytes_read = fread(block, 1, block_size, fp);
+    	if (bytes_read < block_size) {
+    		block = realloc(block, bytes_read);
+    	}
+    	send(socket, block, bytes_read, 0);
+    }
+
+	return 0;
+}
+
+void* connection_handle(void* vsock) {
   int socket = *(int *)vsock;
   char *s = NULL;
   pan *files;
@@ -171,8 +223,7 @@ void* connection_handle(void* vsock){
   s = allocated_buffer_read(socket, s, &size);
   puts(s);
   float file_size=0, block_size=0;
-
-  switch (s[0]){
+  switch (s[0]) {
     case 'f':  //The client wants the list of files from the directory starting from s + 1
       printf("SRV F CASE OF SWTICH\n");
       files = local_list_dir(s+1);
@@ -186,15 +237,15 @@ void* connection_handle(void* vsock){
       break;
 
     case 'r': // The client wants to remove the file
-	printf("SRV r CASE OF SWTICH\n");	
+		printf("SRV r CASE OF SWTICH\n");	
 
-	if(remove(s+1) == 0) printf("Successfully deleted\n");
-		else printf("Unable to delete the file\n");
+		if(remove(s+1) == 0) printf("Successfully deleted\n");
+			else printf("Unable to delete the file\n");
 
-	char *send_data="ACK";
-	send(socket,(void *)send_data,strlen(send_data),0);
-	close(socket);
-	break;
+		char *send_data="ACK";
+		send(socket,(void *)send_data,strlen(send_data),0);
+		close(socket);
+		break;
 
     case 'u':
       printf("IN CASE u\n");
@@ -218,7 +269,15 @@ void* connection_handle(void* vsock){
       upload(socket, s+9, blocks, block_size);
       
       close(socket);
-    break;
+   	  break;
+    case 'd':
+        printf("In case d\n");
+    	int err = download_file(socket, s+1);
+    	if(err == -1)
+    		printf("File not found on server");
+    	if(err == -2)
+    		printf("Client doesn't recieved correct info about file");
+    	break;
   }
   close(socket);
   free(s);
