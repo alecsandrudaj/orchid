@@ -47,6 +47,7 @@ extern int errno ;
 
 char ip[25];
 int port;
+int w, h;
 
 typedef struct file{
 	char *name;
@@ -144,6 +145,25 @@ pan *unpack(void *data){
 	return pannel;
 }
 
+
+
+void progress_print(int progress){
+
+
+	puts(CLRS);
+	puts(KRED);
+	puts(BNRM);
+	printf("%d\n", progress);
+	char pbar[104];
+	strcpy(pbar, "||");
+	memset(pbar + 2, '#', progress);
+	memset(pbar + 2 + progress, ' ', 100 - progress);
+	strcpy(pbar + 102, "||");
+	puts(pbar);
+
+
+}
+
 int upload(char *file_path, char *right_dir_path){
     int socket = make_connection();
 
@@ -199,9 +219,19 @@ int upload(char *file_path, char *right_dir_path){
     void *buff;
     int bytes_read=0;
 
+
+    int i = 0;
     buff=(void *)malloc(*chunk_size);
-    for(int i=0; i<blocks; i++)
+    int old_percent = -1, new_percent = -1;
+    for(i=0; i<blocks; i++)
     {
+    new_percent = ( i * 100 )/ blocks;
+
+    if (new_percent != old_percent)
+    	progress_print(new_percent);
+
+    old_percent = new_percent;	
+
 	bytes_read=fread(buff, 1, *chunk_size, fp);
 	send(socket, buff, bytes_read, 0);
     }
@@ -310,6 +340,7 @@ pan *local_list_dir(char * curent_director){
 			curent += 1;
 	}
 
+	curent += 1;	
 	files[curent] = NULL;
 
 	files = (sfl **)realloc(files, (curent + 1)* sizeof(sfl *));
@@ -604,6 +635,7 @@ int iterface(void){
 
 					right_panel = server_list_dir(right_dir);
 					qsort(right_panel->sf, right_panel->len, sizeof(sfl *), compare);
+					smartprint(width, height, right_panel, left_panel, selected_left, selected_right, selected_panel);
 				}
 				break;
 			case 'r':
