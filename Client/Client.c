@@ -164,29 +164,38 @@ void progress_print(int progress){
 
 }
 
-int read_socket_write_to_file(int socket, int block_size, char *file){
+int read_socket_write_to_file(int socket, int block_size, char *file, int total_blocks){
 
   FILE *fp = fopen(file,"wb");
   int blocks = 0;
   void *block = malloc(block_size);
   int bytes_read;
+  int old_prc = -1, new_prc = -1;
   while((bytes_read = read(socket, block, block_size)) > 0) {
+
+  	 new_prc = (blocks * 100) / total_blocks;
+  	 if (new_prc != old_prc)
+  	 	progress_print(new_prc);
+
+  	 old_prc = new_prc;
      fwrite(block, 1, bytes_read, fp);
      blocks++;
+
   }
 
   return blocks;
 }
 
 char *get_local_file_path(char *remote_file, char *local_dir) {
-    char *filename = strchr(remote_file,'/');
+    char *filename = strrchr(remote_file,'/');
 
     if (!filename) {
         return NULL;
     }
     filename += 1;
-    char *local_file_path = malloc(strlen(local_dir)+strlen(filename));
+    char *local_file_path = malloc(strlen(local_dir)+strlen(filename) + 1);
     strcpy(local_file_path, local_dir);
+    strcat(local_file_path, "/");
     strcat(local_file_path, filename);
     
     return local_file_path;
@@ -194,7 +203,7 @@ char *get_local_file_path(char *remote_file, char *local_dir) {
 
 int download(char *remote_file, char *local_dir){
     
-    int socket = make_connection()
+    int socket = make_connection();
     char *request = malloc(strlen(remote_file)+1);
     request[0] = 'd';
     strcpy(request+1, remote_file);
@@ -214,9 +223,7 @@ int download(char *remote_file, char *local_dir){
         blocks = file_size/block_size + 1;
 
     send(socket, &blocks, sizeof(int), 0);
-    
-    printf("%d %d %d\n", file_size, block_size, blocks);
-    
+        
     char* local_file_path = get_local_file_path(remote_file, local_dir);
 
     if (!local_file_path)
@@ -224,7 +231,7 @@ int download(char *remote_file, char *local_dir){
 
     int written_blocks = 0;
 
-    written_blocks = read_socket_write_to_file(socket, block_size, local_file_path);
+    written_blocks = read_socket_write_to_file(socket, block_size, local_file_path, blocks);
     printf("%d", written_blocks);
     if (written_blocks != blocks) {
         return -2;
@@ -308,18 +315,6 @@ int upload(char *file_path, char *right_dir_path){
     return 0;
 }
 
-int download(char *file){
-	int socket = make_connection();
-    
-    char cmd[257] = "d";
-
-    strcat(cmd, file);
-
-    send(socket , cmd , strlen(cmd) , 0 ); 
-
-
-	return 0;
-}
 
 int sv_remove(char *file){
 	int socket = make_connection();
@@ -684,7 +679,7 @@ int iterface(void){
 						strcpy(full_path, right_dir);
 						strcat(full_path, "/");
 						strcat(full_path, right_panel->sf[selected_right]->name);
-						download(full_path);
+						download(full_path, left_dir);
 
 						left_panel = local_list_dir(left_dir);
 						qsort(left_panel->sf, left_panel->len, sizeof(sfl *), compare);
